@@ -2,9 +2,13 @@ package servlets;
 
 import entity.User;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import javax.ejb.EJB;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -63,7 +67,34 @@ public class LoginServlet extends HttpServlet {
         String path = request.getServletPath();
         switch (path) {
             case "/login":
+                JsonReader jsonReader = Json.createReader(request.getReader());
+                JsonObject jsonObject = jsonReader.readObject();
+                String login = jsonObject.getString("login","");
+                String password = jsonObject.getString("password","");
+                User authUser = userFacade.findByLogin(login);
+                if(authUser == null){
+                    String json = "{\"info\": \"Нет такого пользователя\"}";
+                    try(PrintWriter out = response.getWriter()){
+                        out.println(json);
+                    }
+                    break;
+                }
                 
+                PasswordProtected pp = new PasswordProtected();
+                password = pp.getProtectedPassword(password, authUser.getSalt());
+                if(!password.equals(authUser.getPassword())){
+                    String json = "{\"info\": \"Неверный пароль\"}";
+                    try(PrintWriter out = response.getWriter()){
+                        out.println(json);
+                    }
+                    break;
+                }
+                session =request.getSession(true);
+                session.setAttribute("authUser", authUser);
+                String json = "{\"info\": \"Вы вошли!"+authUser.getLogin()+"\"}";
+                try(PrintWriter out = response.getWriter()){
+                        out.println(json);
+                }
                 break;
             case "/logout":
                 session = request.getSession(false);
